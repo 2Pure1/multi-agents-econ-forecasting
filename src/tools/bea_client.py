@@ -93,3 +93,4 @@ def process_bea_response(response: Dict) -> pd.DataFrame:
         df = pd.DataFrame(data)
         return df
     return pd.DataFrame()
+    

@@ -1,0 +1,16 @@
+google-generativeai
+requests
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+statsmodels
+python-dotenv
+jupyter
+nest_asyncio
+langchain
+langchain-google-genai
+beautifulsoup4
+lxml
+pyautogen

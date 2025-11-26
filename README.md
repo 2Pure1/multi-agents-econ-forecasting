@@ -75,7 +75,7 @@ asyncio.run(main())
  * Economic indicator comparisons
  * Export to multiple formats
 
-###🛠️ Technical Stack
+### 🛠️ Technical Stack
  * Multi-Agent Framework: Google ADK (Agent Development Kit)
  * LLM: Google Gemini 2.0 Flash
  * Data Source: BEA (Bureau of Economic Analysis) API

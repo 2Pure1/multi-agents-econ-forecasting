@@ -32,11 +32,91 @@ This project demonstrates a multi-agent architecture where specialized AI agents
 ### Installation
 
 ```bash
-git clone https://github.com/2Pure1/economic-forecasting-agents.git
-cd economic-forecasting-agents
+git clone https://github.com/2Pure1/multi-agents-econ-forecasting.git
+cd multi-agents-econ-forecasting
 
 pip install -r requirements.txt
 
 # Set environment variables
 export BEA_API_KEY="your_bea_api_key"
 export GOOGLE_API_KEY="your_gemini_api_key"
+```
+### Basic Usage
+
+```bash
+from examples.multi_agent_workflow import main
+import asyncio
+
+asyncio.run(main())
+```
+
+### 📊 Features
+
+### Data Collection
+ * Real-time BEA API integration
+ * Multiple economic indicators (GDP, Unemployment, Inflation)
+ * Data validation and cleaning
+
+### Analysis Capabilities
+ * Trend analysis and pattern recognition
+ * Business cycle identification
+ * Anomaly detection
+ * Economic health assessment
+
+### Forecasting Models
+ * ARIMA time series forecasting
+ * Ensemble methods
+ * Confidence interval estimation
+ * Model performance evaluation
+
+### Visualization
+ * Interactive Plotly dashboards
+ * Time series charts with forecasts
+ * Economic indicator comparisons
+ * Export to multiple formats
+
+###🛠️ Technical Stack
+ * Multi-Agent Framework: Google ADK (Agent Development Kit)
+ * LLM: Google Gemini 2.0 Flash
+ * Data Source: BEA (Bureau of Economic Analysis) API
+ * Analysis: pandas, statsmodels, scikit-learn
+ * Visualization: Plotly, Matplotlib
+ * Async Processing: asyncio
+
+##  Project Structure
+
+multi-agents-econ-forecasting/
+
+├── src/agents/          # Specialized agent implementations
+
+├── src/tools/           # Economic analysis tools
+
+├── examples/            # Usage examples and workflows
+
+├── config/              # Agent and API configuration
+
+├── notebooks/           # Jupyter notebook demonstrations
+
+└── evaluation/          # Test cases and evaluation metrics
+
+## 🔧 Configuration
+
+Edit config/agent_config.yaml to customize:
+ * Agent behaviors and tools
+ * Forecasting parameters
+ * Data sources and frequencies
+ * Model preferences
+
+## 📈 Evaluation
+
+The system includes comprehensive evaluation:
+ * Test cases for each agent
+ * Forecast accuracy metrics
+ * Economic indicator validation
+ * Performance benchmarking
+
+## 🙏 Acknowledgments
+ * Google ADK Team for the agent development framework
+ * Bureau of Economic Analysis for economic data
+ * Kaggle for the educational resources
+

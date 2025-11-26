@@ -1,0 +1,33 @@
+agents:
+  data_collector:
+    enabled: true
+    description: "Collects economic data from BEA API"
+    
+  economic_analyst:
+    enabled: true  
+    description: "Analyzes economic trends and patterns"
+    
+  forecasting_specialist:
+    enabled: true
+    description: "Builds forecasting models and generates predictions"
+    
+  visualization_agent:
+    enabled: true
+    description: "Creates interactive dashboards and visualizations"
+
+bea_api:
+  base_url: "https://apps.bea.gov/api/data"
+  api_key: "${BEA_API_KEY}" # Loaded from environment variable
+  dataset: "NIPA"  # National Income and Product Accounts
+  frequency: "Q"    # Quarterly data
+
+forecasting:
+  default_horizon: 8  # quarters
+  confidence_level: 0.95
+  models:
+    arima:
+      order: [5, 1, 0]
+    prophet:
+      seasonality_mode: 'multiplicative'
+    ensemble:
+      weights: [0.5, 0.5]

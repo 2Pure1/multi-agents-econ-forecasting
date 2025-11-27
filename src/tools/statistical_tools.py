@@ -3,6 +3,7 @@
 This module provides a comprehensive suite of statistical and econometric functions 
 for analyzing economic time-series data. It includes tools for data preparation, 
 trend analysis, indicator calculation, business cycle identification, anomaly 
+detection, and forecasting.
 """
 
 import pandas as pd
@@ -612,6 +613,46 @@ class StatisticalTools:
         except Exception:
             # Return empty metrics if calculation fails
             return {"mae": 0, "rmse": 0, "mape": 0, "r2": 0}
+
+    def evaluate_forecast_accuracy(self, actual_data: pd.DataFrame, 
+                                   forecast_data: pd.DataFrame,
+                                   date_column: str = 'TimePeriod',
+                                   actual_value_column: str = 'DataValue',
+                                   forecast_value_column: str = 'point_forecast') -> Dict[str, Any]:
+        """
+        Evaluates the accuracy of a forecast against actual historical data.
+        
+        Args:
+            actual_data: DataFrame with the actual historical values.
+            forecast_data: DataFrame with the forecasted values.
+            date_column: The name of the date/period column in both frames.
+            actual_value_column: The name of the value column in the actual_data.
+            forecast_value_column: The name of the value column in the forecast_data.
+            
+        Returns:
+            A dictionary of accuracy metrics (MAE, RMSE, MAPE).
+        """
+        try:
+            actual_s = self.prepare_time_series_data(actual_data, date_column, actual_value_column)
+            forecast_s = self.prepare_time_series_data(forecast_data, date_column, forecast_value_column)
+            
+            # Align the series by index
+            aligned_actual, aligned_forecast = actual_s.align(forecast_s, join='inner')
+            
+            if aligned_actual.empty:
+                return {"status": "error", "message": "No overlapping data found to compare."}
+            
+            return {
+                "status": "success",
+                "mae": mean_absolute_error(aligned_actual, aligned_forecast),
+                "rmse": np.sqrt(mean_squared_error(aligned_actual, aligned_forecast)),
+                "mape": self._calculate_mape(aligned_actual, aligned_forecast),
+                "comparison_period_start": aligned_actual.index[0].strftime('%Y-%m-%d'),
+                "comparison_period_end": aligned_actual.index[-1].strftime('%Y-%m-%d'),
+                "points_compared": len(aligned_actual)
+            }
+        except Exception as e:
+            return {"status": "error", "error_message": f"Forecast evaluation failed: {e}"}
 
 # ======================================================================
 # Example Usage Block

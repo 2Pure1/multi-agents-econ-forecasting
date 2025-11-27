@@ -1,7 +1,10 @@
-"""
-Statistical and Econometric Tools for Economic Analysis
-Provides comprehensive statistical functions for economic data analysis and forecasting.
-"""
+"Statistical and Econometric Tools for Economic Analysis
+
+This module provides a comprehensive suite of statistical and econometric functions 
+for analyzing economic time-series data. It includes tools for data preparation, 
+trend analysis, indicator calculation, business cycle identification, anomaly 
+detection, and forecasting.
+"
 
 import pandas as pd
 import numpy as np
@@ -25,11 +28,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime, timedelta
 
+# Suppress common warnings from statsmodels to keep output clean
 warnings.filterwarnings('ignore')
 
 @dataclass
 class EconomicIndicator:
-    """Container for economic indicator results"""
+    """A data container for the results of an economic indicator calculation."""
     name: str
     value: float
     trend: str
@@ -39,7 +43,7 @@ class EconomicIndicator:
 
 @dataclass
 class ForecastResult:
-    """Container for forecasting results"""
+    """A data container for the results of a forecasting operation."""
     point_forecast: float
     confidence_interval: Tuple[float, float]
     model_type: str
@@ -47,39 +51,51 @@ class ForecastResult:
     forecast_periods: int
 
 class StatisticalTools:
-    """Comprehensive statistical tools for economic analysis"""
+    """
+    A class that encapsulates a wide range of statistical tools for economic analysis.
+    
+    The methods in this class are designed to be used by other agents, such as the
+    EconomicAnalystAgent, to perform detailed analysis on economic data.
+    """
     
     def __init__(self):
+        """Initializes the StatisticalTools class."""
         self.scaler = StandardScaler()
         
     def prepare_time_series_data(self, data: pd.DataFrame, 
                                date_column: str = 'TimePeriod',
                                value_column: str = 'DataValue') -> pd.Series:
         """
-        Prepare time series data for analysis
+        Prepares raw DataFrame data for time-series analysis.
+        
+        This involves setting a datetime index, sorting the data, and ensuring
+        the value column is numeric.
         
         Args:
-            data: DataFrame containing time series data
-            date_column: Name of the date column
-            value_column: Name of the value column
+            data: The input DataFrame.
+            date_column: The name of the column containing date information.
+            value_column: The name of the column containing the series values.
             
         Returns:
-            pd.Series: Time series data with datetime index
+            A pandas Series with a DatetimeIndex, ready for analysis.
+            
+        Raises:
+            ValueError: If there is an error in processing the data.
         """
         try:
             df = data.copy()
             
-            # Convert to datetime if needed
+            # Ensure the date column is of datetime type
             if not pd.api.types.is_datetime64_any_dtype(df[date_column]):
                 df[date_column] = pd.to_datetime(df[date_column])
             
-            # Set datetime index and sort
+            # Set the date column as the index and sort
             df = df.set_index(date_column).sort_index()
             
-            # Convert value column to numeric, handling errors
+            # Convert the value column to a numeric type, coercing errors
             df[value_column] = pd.to_numeric(df[value_column], errors='coerce')
             
-            # Drop NaN values
+            # Remove any rows with missing values in the target column
             df = df.dropna(subset=[value_column])
             
             return df[value_column]
@@ -91,52 +107,46 @@ class StatisticalTools:
                             value_column: str = 'DataValue',
                             window: int = 4) -> Dict[str, Any]:
         """
-        Analyze GDP growth trends and patterns
+        Analyzes growth trends, volatility, and seasonality in the data.
         
         Args:
-            data: DataFrame containing economic data
-            value_column: Column containing the values to analyze
-            window: Rolling window size for moving averages
+            data: DataFrame containing the economic time-series data.
+            value_column: The name of the column to analyze.
+            window: The rolling window size for moving averages (default is 4 for quarterly data).
             
         Returns:
-            Dict with growth analysis results
+            A dictionary containing a comprehensive analysis of growth trends.
         """
         try:
             ts_data = self.prepare_time_series_data(data, value_column=value_column)
             
             if len(ts_data) < 2:
-                return {"error": "Insufficient data for trend analysis"}
+                return {"status": "error", "message": "Insufficient data for trend analysis"}
             
-            # Calculate growth rates
+            # --- Growth Rate Calculation ---
             growth_rates = ts_data.pct_change() * 100
-            quarterly_growth = ts_data.pct_change(periods=1) * 100
-            annual_growth = ts_data.pct_change(periods=4) * 100
             
-            # Rolling statistics
-            rolling_mean = ts_data.rolling(window=window).mean()
-            rolling_std = ts_data.rolling(window=window).std()
-            
-            # Trend analysis using linear regression
-            X = np.arange(len(ts_data)).reshape(-1, 1)
-            y = ts_data.values
+            # --- Trend Analysis using Linear Regression ---
+            X = np.arange(len(ts_data))
             X = add_constant(X)
+            y = ts_data.values
             model = OLS(y, X).fit()
             trend_slope = model.params[1] if len(model.params) > 1 else 0
-            trend_strength = model.rsquared
+            trend_strength = model.rsquared # R-squared as a measure of trend strength
             
-            # Determine trend direction
-            if trend_slope > 0:
+            # Determine the overall trend direction
+            if trend_slope > 0.05: # Using a small threshold to avoid noise
                 trend_direction = "upward"
-            elif trend_slope < 0:
+            elif trend_slope < -0.05:
                 trend_direction = "downward"
             else:
                 trend_direction = "flat"
             
-            # Volatility analysis
+            # --- Volatility Analysis ---
             volatility = growth_rates.std()
             recent_volatility = growth_rates.tail(window).std()
             
-            # Seasonality detection (for quarterly data)
+            # --- Seasonality Detection ---
             seasonal_strength = self._detect_seasonality(ts_data)
             
             return {
@@ -151,7 +161,7 @@ class StatisticalTools:
                 "seasonal_strength": seasonal_strength,
                 "data_points": len(ts_data),
                 "latest_value": ts_data.iloc[-1],
-                "period_range": f"{ts_data.index[0]} to {ts_data.index[-1]}",
+                "period_range": f"{ts_data.index[0].strftime('%Y-%m-%d')} to {ts_data.index[-1].strftime('%Y-%m-%d')}",
                 "growth_rates_summary": {
                     "mean": growth_rates.mean(),
                     "std": growth_rates.std(),
@@ -166,54 +176,45 @@ class StatisticalTools:
     def calculate_indicators(self, data: pd.DataFrame, 
                            value_column: str = 'DataValue') -> Dict[str, Any]:
         """
-        Calculate key economic indicators
+        Calculates a dictionary of key economic indicators from the data.
         
         Args:
-            data: DataFrame containing economic data
-            value_column: Column containing the values
+            data: DataFrame containing the economic data.
+            value_column: The name of the column to analyze.
             
         Returns:
-            Dict with economic indicators
+            A dictionary containing calculated indicators and an interpretation.
         """
         try:
             ts_data = self.prepare_time_series_data(data, value_column=value_column)
             
             if len(ts_data) < 4:
-                return {"error": "Insufficient data for indicator calculation"}
+                return {"status": "error", "message": "Insufficient data for indicator calculation"}
             
             indicators = {}
             
-            # Basic statistics
+            # --- Basic Descriptive Statistics ---
             indicators["current_value"] = ts_data.iloc[-1]
             indicators["mean"] = ts_data.mean()
             indicators["median"] = ts_data.median()
             indicators["std_dev"] = ts_data.std()
-            indicators["cv"] = (ts_data.std() / ts_data.mean()) * 100  # Coefficient of variation
-            
-            # Growth indicators
+            indicators["cv"] = (ts_data.std() / ts_data.mean()) * 100  # Coefficient of Variation
+
+            # --- Growth & Volatility Indicators ---
             growth_rates = ts_data.pct_change() * 100
-            indicators["recent_growth"] = growth_rates.tail(4).mean()  # Last year average
+            indicators["recent_growth"] = growth_rates.tail(4).mean()  # Avg growth over the last year
             indicators["long_term_growth"] = growth_rates.mean()
-            
-            # Volatility indicators
             indicators["volatility"] = growth_rates.std()
             indicators["max_drawdown"] = self._calculate_max_drawdown(ts_data)
             
-            # Trend indicators
-            trend_strength = self._calculate_trend_strength(ts_data)
-            indicators["trend_strength"] = trend_strength
-            
-            # Stationarity tests
+            # --- Trend & Stationarity ---
+            indicators["trend_strength"] = self._calculate_trend_strength(ts_data)
             adf_result = adfuller(ts_data.dropna())
-            indicators["stationary"] = adf_result[1] < 0.05  # p-value < 0.05
+            indicators["is_stationary"] = adf_result[1] < 0.05  # p-value < 0.05 suggests stationarity
             
-            # Business cycle positioning
-            cycle_position = self._assess_business_cycle_position(ts_data)
-            indicators["business_cycle_position"] = cycle_position
-            
-            # Momentum indicators
-            momentum = self._calculate_momentum(ts_data)
-            indicators["momentum"] = momentum
+            # --- Cyclical & Momentum Indicators ---
+            indicators["business_cycle_position"] = self._assess_business_cycle_position(ts_data)
+            indicators["momentum"] = self._calculate_momentum(ts_data)
             
             return {
                 "status": "success",
@@ -227,33 +228,29 @@ class StatisticalTools:
     def identify_business_cycles(self, data: pd.DataFrame,
                                value_column: str = 'DataValue') -> Dict[str, Any]:
         """
-        Identify business cycle phases using statistical methods
+        Identifies business cycle phases using the Hodrick-Prescott filter.
         
         Args:
-            data: DataFrame containing economic data
-            value_column: Column containing the values
+            data: DataFrame containing the economic data.
+            value_column: The name of the column to analyze.
             
         Returns:
-            Dict with business cycle analysis
+            A dictionary containing the business cycle analysis.
         """
         try:
             ts_data = self.prepare_time_series_data(data, value_column=value_column)
             
             if len(ts_data) < 8:  # Need sufficient data for cycle detection
-                return {"error": "Insufficient data for business cycle analysis"}
+                return {"status": "error", "message": "Insufficient data for business cycle analysis"}
             
-            # Apply Hodrick-Prescott filter to separate trend and cycle
+            # Decompose the series into trend and cycle components using HP filter
             cycle, trend = self._hp_filter(ts_data)
             
-            # Find peaks and troughs in the cycle component
+            # Find the peaks and troughs in the cyclical component
             peaks, troughs = self._find_peaks_troughs(cycle)
             
-            # Determine current phase
-            current_phase = self._determine_current_phase(ts_data, peaks, troughs)
-            
-            # Calculate cycle characteristics
-            cycle_duration = self._calculate_cycle_duration(peaks, troughs, ts_data.index)
-            amplitude = self._calculate_cycle_amplitude(cycle)
+            # Determine the current phase based on the last peak/trough
+            current_phase = self._determine_current_phase(cycle)
             
             return {
                 "status": "success",
@@ -262,9 +259,9 @@ class StatisticalTools:
                 "trend_component": trend.tolist(),
                 "peaks": [ts_data.index[i].strftime('%Y-%m-%d') for i in peaks],
                 "troughs": [ts_data.index[i].strftime('%Y-%m-%d') for i in troughs],
-                "cycle_duration": cycle_duration,
-                "amplitude": amplitude,
-                "phase_duration": self._calculate_current_phase_duration(current_phase, ts_data, peaks, troughs)
+                "average_cycle_duration": self._calculate_cycle_duration(peaks, troughs),
+                "cycle_amplitude": self._calculate_cycle_amplitude(cycle),
+                "current_phase_duration": self._calculate_current_phase_duration(cycle, peaks, troughs)
             }
             
         except Exception as e:
@@ -272,19 +269,19 @@ class StatisticalTools:
     
     def detect_anomalies(self, data: pd.DataFrame,
                         value_column: str = 'DataValue',
-                        method: str = 'zscore',
-                        threshold: float = 2.5) -> Dict[str, Any]:
+                        method: str = 'iqr',
+                        threshold: float = 1.5) -> Dict[str, Any]:
         """
-        Detect anomalies in economic data
+        Detects anomalies (outliers) in the economic data.
         
         Args:
-            data: DataFrame containing economic data
-            value_column: Column containing the values
-            method: Detection method ('zscore', 'iqr', 'isolation_forest')
-            threshold: Threshold for anomaly detection
+            data: DataFrame containing the economic data.
+            value_column: The name of the column to analyze.
+            method: The detection method to use ('zscore', 'iqr'). 'iqr' is often more robust.
+            threshold: The threshold for detection (e.g., 1.5 for IQR, 2.5 or 3 for z-score).
             
         Returns:
-            Dict with anomaly detection results
+            A dictionary containing the detected anomalies.
         """
         try:
             ts_data = self.prepare_time_series_data(data, value_column=value_column)
@@ -300,30 +297,21 @@ class StatisticalTools:
                 Q1 = ts_data.quantile(0.25)
                 Q3 = ts_data.quantile(0.75)
                 IQR = Q3 - Q1
-                lower_bound = Q1 - 1.5 * IQR
-                upper_bound = Q3 + 1.5 * IQR
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
                 anomaly_indices = ts_data[(ts_data < lower_bound) | (ts_data > upper_bound)].index
-                
-            elif method == 'isolation_forest':
-                # Simple version - use moving average residuals
-                rolling_mean = ts_data.rolling(window=4, center=True).mean()
-                residuals = ts_data - rolling_mean
-                residual_std = residuals.std()
-                anomaly_indices = residuals[np.abs(residuals) > threshold * residual_std].index
             
-            # Compile anomaly information
+            else:
+                return {"status": "error", "message": f"Unknown anomaly detection method: {method}"}
+
+            # Format the list of anomalies
             for idx in anomaly_indices:
-                if isinstance(idx, (int, np.integer)):
-                    date = ts_data.index[idx]
-                    value = ts_data.iloc[idx]
-                else:
-                    date = idx
-                    value = ts_data.loc[idx]
-                    
+                date = ts_data.index[idx] if isinstance(idx, (int, np.integer)) else idx
+                value = ts_data.loc[date]
                 anomalies.append({
                     'date': date.strftime('%Y-%m-%d'),
                     'value': value,
-                    'deviation': float((value - ts_data.mean()) / ts_data.std()),
+                    'deviation_score': float((value - ts_data.mean()) / ts_data.std()),
                     'type': 'high' if value > ts_data.mean() else 'low'
                 })
             
@@ -331,10 +319,9 @@ class StatisticalTools:
                 "status": "success",
                 "anomalies": anomalies,
                 "anomaly_count": len(anomalies),
-                "anomaly_percentage": (len(anomalies) / len(ts_data)) * 100,
+                "anomaly_percentage": (len(anomalies) / len(ts_data)) * 100 if len(ts_data) > 0 else 0,
                 "detection_method": method,
-                "threshold": threshold,
-                "data_points_analyzed": len(ts_data)
+                "threshold": threshold
             }
             
         except Exception as e:
@@ -345,49 +332,40 @@ class StatisticalTools:
                       periods: int = 8,
                       order: Tuple[int, int, int] = (1, 1, 1)) -> Dict[str, Any]:
         """
-        Generate forecasts using ARIMA model
+        Generates a forecast using a specified ARIMA model.
         
         Args:
-            data: DataFrame containing time series data
-            value_column: Column containing the values
-            periods: Number of periods to forecast
-            order: ARIMA order (p, d, q)
+            data: DataFrame containing the time-series data.
+            value_column: The name of the column to forecast.
+            periods: The number of future periods to forecast.
+            order: The (p, d, q) order of the ARIMA model.
             
         Returns:
-            Dict with ARIMA forecast results
+            A dictionary with the forecast, confidence intervals, and model diagnostics.
         """
         try:
             ts_data = self.prepare_time_series_data(data, value_column=value_column)
             
             if len(ts_data) < 10:
-                return {"error": "Insufficient data for ARIMA modeling"}
+                return {"status": "error", "message": "Insufficient data for ARIMA modeling"}
             
-            # Fit ARIMA model
+            # Fit the ARIMA model
             model = ARIMA(ts_data, order=order)
             fitted_model = model.fit()
             
-            # Generate forecasts
+            # Generate the forecast
             forecast = fitted_model.get_forecast(steps=periods)
             forecast_mean = forecast.predicted_mean
             confidence_int = forecast.conf_int()
             
-            # Calculate accuracy metrics on training data
-            predictions = fitted_model.predict(start=1, end=len(ts_data))
-            mae = mean_absolute_error(ts_data[1:], predictions[1:])
-            rmse = np.sqrt(mean_squared_error(ts_data[1:], predictions[1:]))
-            
-            # Prepare forecast dates
+            # --- Prepare Output ---
             last_date = ts_data.index[-1]
-            if pd.infer_freq(ts_data.index) == 'Q':
-                forecast_dates = pd.date_range(start=last_date, periods=periods+1, freq='Q')[1:]
-            else:
-                # Default to quarterly if frequency can't be inferred
-                forecast_dates = pd.date_range(start=last_date, periods=periods+1, freq='Q')[1:]
+            freq = pd.infer_freq(ts_data.index) or 'Q' # Default to Quarterly
+            forecast_dates = pd.date_range(start=last_date, periods=periods + 1, freq=freq)[1:]
             
             forecast_results = []
             for i, (date, point_fc, (lower, upper)) in enumerate(zip(
                 forecast_dates, forecast_mean, confidence_int.values)):
-                
                 forecast_results.append({
                     'period': date.strftime('%Y-%m-%d'),
                     'point_forecast': float(point_fc),
@@ -403,17 +381,12 @@ class StatisticalTools:
                     "aic": fitted_model.aic,
                     "bic": fitted_model.bic,
                     "order": order,
-                    "params": fitted_model.params.to_dict()
                 },
-                "accuracy_metrics": {
-                    "mae": mae,
-                    "rmse": rmse,
-                    "mape": self._calculate_mape(ts_data[1:], predictions[1:])
-                },
+                "accuracy_metrics": self._calculate_model_accuracy(fitted_model, ts_data),
                 "residuals_analysis": {
                     "mean_residual": fitted_model.resid.mean(),
                     "std_residual": fitted_model.resid.std(),
-                    "normality_test_pvalue": stats.normaltest(fitted_model.resid.dropna())[1]
+                    "normality_pvalue": stats.normaltest(fitted_model.resid.dropna())[1]
                 }
             }
             
@@ -425,30 +398,26 @@ class StatisticalTools:
                          auto_select: bool = True,
                          max_order: int = 3) -> Dict[str, Any]:
         """
-        Build and validate ARIMA model with automatic order selection
+        Builds and validates an ARIMA model, with optional automatic order selection.
         
         Args:
-            data: DataFrame containing time series data
-            value_column: Column containing the values
-            auto_select: Whether to automatically select best order
-            max_order: Maximum order to test for auto selection
+            data: DataFrame containing the time-series data.
+            value_column: The name of the column to model.
+            auto_select: If True, automatically find the best ARIMA order.
+            max_order: The maximum p and q to check during auto-selection.
             
         Returns:
-            Dict with ARIMA model results
+            A dictionary with the best model's order, parameters, and diagnostics.
         """
         try:
             ts_data = self.prepare_time_series_data(data, value_column=value_column)
             
-            if auto_select:
-                best_order = self._auto_arima(ts_data, max_order=max_order)
-            else:
-                best_order = (1, 1, 1)  # Default order
+            best_order = self._auto_arima(ts_data, max_order=max_order) if auto_select else (1, 1, 1)
             
-            # Fit model with best order
+            # Fit the final model with the best order
             model = ARIMA(ts_data, order=best_order)
             fitted_model = model.fit()
             
-            # Model diagnostics
             residuals = fitted_model.resid.dropna()
             
             return {
@@ -457,281 +426,207 @@ class StatisticalTools:
                 "summary": {
                     "aic": fitted_model.aic,
                     "bic": fitted_model.bic,
-                    "hqic": fitted_model.hqic,
                     "log_likelihood": fitted_model.llf
                 },
                 "parameters": fitted_model.params.to_dict(),
-                "residuals": {
+                "residuals_diagnostics": {
                     "mean": residuals.mean(),
                     "std": residuals.std(),
-                    "jarque_bera": stats.jarque_bera(residuals),
-                    "ljung_box": sm.stats.acorr_ljungbox(residuals, lags=[10])[1][0]
+                    "jarque_bera_pvalue": stats.jarque_bera(residuals)[1],
+                    "ljung_box_pvalue": sm.stats.acorr_ljungbox(residuals, lags=[10], return_df=True)['lb_pvalue'].iloc[0]
                 },
-                "forecast_accuracy": self._calculate_model_accuracy(fitted_model, ts_data)
+                "in_sample_accuracy": self._calculate_model_accuracy(fitted_model, ts_data)
             }
             
         except Exception as e:
             return {"status": "error", "error_message": f"ARIMA model building failed: {e}"}
     
-    def ensemble_forecast(self, data: pd.DataFrame,
-                         value_column: str = 'DataValue',
-                         periods: int = 8) -> Dict[str, Any]:
-        """
-        Generate ensemble forecast combining multiple methods
-        
-        Args:
-            data: DataFrame containing time series data
-            value_column: Column containing the values
-            periods: Number of periods to forecast
-            
-        Returns:
-            Dict with ensemble forecast results
-        """
-        try:
-            ts_data = self.prepare_time_series_data(data, value_column=value_column)
-            
-            forecasts = {}
-            weights = {}
-            
-            # ARIMA forecast
-            arima_result = self.forecast_arima(data, value_column, periods)
-            if arima_result["status"] == "success":
-                forecasts["arima"] = [f["point_forecast"] for f in arima_result["forecasts"]]
-                weights["arima"] = 1.0 / arima_result["accuracy_metrics"]["rmse"]
-            
-            # Exponential Smoothing
-            es_result = self._exponential_smoothing_forecast(ts_data, periods)
-            if es_result["status"] == "success":
-                forecasts["exponential_smoothing"] = es_result["forecasts"]
-                weights["exponential_smoothing"] = 1.0 / es_result["rmse"]
-            
-            # Simple moving average
-            ma_forecast = self._moving_average_forecast(ts_data, periods)
-            forecasts["moving_average"] = ma_forecast
-            weights["moving_average"] = 0.3  # Fixed weight for simple method
-            
-            # Normalize weights
-            total_weight = sum(weights.values())
-            normalized_weights = {k: v/total_weight for k, v in weights.items()}
-            
-            # Calculate ensemble forecast
-            ensemble_forecasts = []
-            for i in range(periods):
-                weighted_sum = 0
-                for method, forecast_values in forecasts.items():
-                    weighted_sum += forecast_values[i] * normalized_weights[method]
-                ensemble_forecasts.append(weighted_sum)
-            
-            return {
-                "status": "success",
-                "ensemble_forecast": ensemble_forecasts,
-                "weights": normalized_weights,
-                "methods_used": list(forecasts.keys()),
-                "next_period_prediction": ensemble_forecasts[0] if ensemble_forecasts else None
-            }
-            
-        except Exception as e:
-            return {"status": "error", "error_message": f"Ensemble forecasting failed: {e}"}
+    # ======================================================================
+    # Helper Methods (Private)
+    # ======================================================================
     
-    # Helper methods
     def _detect_seasonality(self, ts_data: pd.Series) -> float:
-        """Detect seasonality strength in time series"""
+        """Helper to detect seasonality strength."""
         try:
             if len(ts_data) >= 8:  # Need at least 2 years of quarterly data
+                # Decompose the series to isolate the seasonal component
                 result = seasonal_decompose(ts_data, model='additive', period=4)
+                # Calculate strength as the standard deviation of the seasonal component
+                # relative to the standard deviation of the original series.
                 seasonal_strength = result.seasonal.std() / ts_data.std()
                 return float(seasonal_strength)
             return 0.0
-        except:
-            return 0.0
+        except Exception:
+            return 0.0 # Return 0 if seasonality detection fails
     
     def _calculate_max_drawdown(self, ts_data: pd.Series) -> float:
-        """Calculate maximum drawdown"""
-        cumulative = (1 + ts_data.pct_change()).cumprod()
+        """Helper to calculate the maximum drawdown (a measure of risk)."""
+        cumulative = (1 + ts_data.pct_change()).cumprod().fillna(1)
         running_max = cumulative.expanding().max()
         drawdown = (cumulative - running_max) / running_max
-        return float(drawdown.min())
+        return float(drawdown.min()) if not drawdown.empty else 0.0
     
     def _calculate_trend_strength(self, ts_data: pd.Series) -> float:
-        """Calculate trend strength using linear regression R²"""
-        X = np.arange(len(ts_data)).reshape(-1, 1)
+        """Helper to calculate trend strength using R-squared from a linear regression."""
+        X = np.arange(len(ts_data))
         X = add_constant(X)
         y = ts_data.values
         model = OLS(y, X).fit()
         return float(model.rsquared)
     
     def _assess_business_cycle_position(self, ts_data: pd.Series) -> str:
-        """Assess current business cycle position"""
+        """Helper to make a simple assessment of the current business cycle position."""
         if len(ts_data) < 4:
             return "insufficient_data"
         
         recent_growth = ts_data.pct_change().tail(4).mean()
         volatility = ts_data.pct_change().std()
         
-        if recent_growth > volatility:
+        if recent_growth > (0.5 * volatility): # Growth is significantly positive
             return "expansion"
-        elif recent_growth < -volatility:
+        elif recent_growth < (-0.5 * volatility): # Growth is significantly negative
             return "contraction"
         else:
-            return "stable"
+            return "stable/transition"
     
     def _calculate_momentum(self, ts_data: pd.Series, periods: int = 4) -> float:
-        """Calculate momentum indicator"""
+        """Helper to calculate a momentum indicator (year-over-year change)."""
         if len(ts_data) < periods + 1:
             return 0.0
         return float(ts_data.pct_change(periods=periods).iloc[-1])
     
     def _hp_filter(self, ts_data: pd.Series, lamb: float = 1600) -> Tuple[pd.Series, pd.Series]:
-        """Hodrick-Prescott filter for trend-cycle decomposition"""
-        # Simplified implementation
-        trend = ts_data.rolling(window=4, center=True).mean()
-        cycle = ts_data - trend
+        """Applies the Hodrick-Prescott filter to decompose a series into trend and cycle."""
+        # For quarterly data, a lambda of 1600 is standard.
+        cycle, trend = sm.tsa.filters.hpfilter(ts_data, lamb=lamb)
         return cycle, trend
     
     def _find_peaks_troughs(self, series: pd.Series) -> Tuple[List[int], List[int]]:
-        """Find peaks and troughs in a series"""
-        peaks = []
-        troughs = []
-        
-        for i in range(1, len(series) - 1):
-            if series.iloc[i] > series.iloc[i-1] and series.iloc[i] > series.iloc[i+1]:
-                peaks.append(i)
-            elif series.iloc[i] < series.iloc[i-1] and series.iloc[i] < series.iloc[i+1]:
-                troughs.append(i)
-        
-        return peaks, troughs
+        """Finds local peaks and troughs in a time series."""
+        # Using scipy's find_peaks for a more robust implementation
+        peaks, _ = stats.find_peaks(series.values)
+        troughs, _ = stats.find_peaks(-series.values)
+        return peaks.tolist(), troughs.tolist()
     
-    def _determine_current_phase(self, ts_data: pd.Series, peaks: List[int], troughs: List[int]) -> str:
-        """Determine current business cycle phase"""
-        if not peaks and not troughs:
+    def _determine_current_phase(self, cycle: pd.Series) -> str:
+        """Determines the current phase (expansion/contraction) based on recent movement."""
+        if len(cycle) < 2:
             return "undetermined"
+        
+        # Check if the last few points are generally rising or falling
+        recent_slope = cycle.tail(3).diff().mean()
+        
+        if recent_slope > 0:
+            return "expansion"
+        elif recent_slope < 0:
+            return "contraction"
+        else:
+            return "transition"
+    
+    def _calculate_cycle_duration(self, peaks: List[int], troughs: List[int]) -> float:
+        """Calculates the average duration of full business cycles (trough to trough)."""
+        if len(troughs) < 2:
+            return 0.0
+        # Calculate the time difference between consecutive troughs
+        durations = np.diff(troughs)
+        return float(np.mean(durations)) if len(durations) > 0 else 0.0
+
+    def _calculate_cycle_amplitude(self, cycle: pd.Series) -> float:
+        """Calculates the amplitude of the cycle as the difference between its max and min."""
+        return float(cycle.max() - cycle.min()) if not cycle.empty else 0.0
+    
+    def _calculate_current_phase_duration(self, cycle: pd.Series, peaks: List[int], troughs: List[int]) -> int:
+        """Calculates the duration of the current, ongoing phase."""
+        if not peaks and not troughs:
+            return 0
         
         last_peak = max(peaks) if peaks else -1
         last_trough = max(troughs) if troughs else -1
+        last_turning_point = max(last_peak, last_trough)
         
-        if last_peak > last_trough:
-            return "contraction"  # After peak, before trough
-        else:
-            return "expansion"    # After trough, before peak
-    
-    def _calculate_cycle_duration(self, peaks: List[int], troughs: List[int], index: pd.DatetimeIndex) -> Dict[str, float]:
-        """Calculate business cycle duration statistics"""
-        if len(peaks) < 2 or len(troughs) < 2:
-            return {"average_expansion": 0, "average_contraction": 0}
-        
-        # Simplified calculation
-        return {
-            "average_expansion": 4.0,  # quarters
-            "average_contraction": 2.0  # quarters
-        }
-    
-    def _calculate_cycle_amplitude(self, cycle: pd.Series) -> float:
-        """Calculate cycle amplitude"""
-        return float(cycle.max() - cycle.min())
-    
-    def _calculate_current_phase_duration(self, current_phase: str, ts_data: pd.Series, 
-                                        peaks: List[int], troughs: List[int]) -> int:
-        """Calculate duration of current phase"""
-        # Simplified implementation
-        return 0
-    
+        return len(cycle) - last_turning_point if last_turning_point != -1 else len(cycle)
+
     def _interpret_indicators(self, indicators: Dict[str, Any]) -> str:
-        """Provide interpretation of economic indicators"""
+        """Provides a brief, human-readable interpretation of a set of indicators."""
         interpretation = []
         
-        if indicators.get("recent_growth", 0) > 2:
-            interpretation.append("Strong recent growth")
-        elif indicators.get("recent_growth", 0) < 0:
-            interpretation.append("Recent contraction")
+        if indicators.get("recent_growth", 0) > 1.5:
+            interpretation.append("Strong recent growth.")
+        elif indicators.get("recent_growth", 0) < -0.5:
+            interpretation.append("Recent data shows contraction.")
         
         if indicators.get("volatility", 0) > 5:
-            interpretation.append("High volatility environment")
+            interpretation.append("High volatility environment detected.")
         
-        if indicators.get("trend_strength", 0) > 0.7:
-            interpretation.append("Strong trend pattern")
+        if indicators.get("trend_strength", 0) > 0.75:
+            interpretation.append("Data shows a strong, clear trend.")
         
-        return "; ".join(interpretation) if interpretation else "Stable economic conditions"
+        return " ".join(interpretation) if interpretation else "Economic conditions appear stable."
     
     def _calculate_mape(self, actual: pd.Series, predicted: pd.Series) -> float:
-        """Calculate Mean Absolute Percentage Error"""
-        return float(np.mean(np.abs((actual - predicted) / actual)) * 100)
+        """Calculates Mean Absolute Percentage Error, handling potential zeros in actuals."""
+        actual, predicted = np.array(actual), np.array(predicted)
+        # Avoid division by zero
+        mask = actual != 0
+        return float(np.mean(np.abs((actual[mask] - predicted[mask]) / actual[mask])) * 100)
     
     def _auto_arima(self, ts_data: pd.Series, max_order: int = 3) -> Tuple[int, int, int]:
-        """Simple automatic ARIMA order selection"""
-        # Simplified implementation - in production, use pmdarima
+        """
+        A simplified grid-search for the best ARIMA order based on AIC.
+        
+        Note: For production use, a more sophisticated library like 'pmdarima' 
+        (auto_arima) is highly recommended as it is more efficient and robust.
+        """
         best_aic = np.inf
         best_order = (1, 1, 1)
         
+        # Grid search over a small range of p, d, q values
         for p in range(max_order + 1):
-            for d in range(2):  # Differencing order
+            for d in range(2):  # Differencing up to 1
                 for q in range(max_order + 1):
+                    if p == 0 and q == 0:
+                        continue
                     try:
                         model = ARIMA(ts_data, order=(p, d, q))
                         fitted_model = model.fit()
                         if fitted_model.aic < best_aic:
                             best_aic = fitted_model.aic
                             best_order = (p, d, q)
-                    except:
+                    except Exception:
+                        # Ignore orders that cause errors
                         continue
-        
         return best_order
     
     def _calculate_model_accuracy(self, model, ts_data: pd.Series) -> Dict[str, float]:
-        """Calculate model accuracy metrics"""
+        """Calculates a dictionary of common accuracy metrics for a fitted model."""
         try:
-            predictions = model.predict(start=1, end=len(ts_data))
+            # In-sample predictions
+            predictions = model.predict(start=ts_data.index[1], end=ts_data.index[-1])
             actual = ts_data[1:]
-            pred = predictions[1:]
             
             return {
-                "mae": mean_absolute_error(actual, pred),
-                "rmse": np.sqrt(mean_squared_error(actual, pred)),
-                "mape": self._calculate_mape(actual, pred),
-                "r2": r2_score(actual, pred)
+                "mae": mean_absolute_error(actual, predictions),
+                "rmse": np.sqrt(mean_squared_error(actual, predictions)),
+                "mape": self._calculate_mape(actual, predictions),
+                "r2": r2_score(actual, predictions)
             }
-        except:
+        except Exception:
+            # Return empty metrics if calculation fails
             return {"mae": 0, "rmse": 0, "mape": 0, "r2": 0}
-    
-    def _exponential_smoothing_forecast(self, ts_data: pd.Series, periods: int) -> Dict[str, Any]:
-        """Generate forecast using exponential smoothing"""
-        try:
-            model = ExponentialSmoothing(ts_data, seasonal_periods=4, trend='add', seasonal='add')
-            fitted_model = model.fit()
-            forecast = fitted_model.forecast(periods)
-            
-            # Calculate training accuracy
-            predictions = fitted_model.fittedvalues
-            mae = mean_absolute_error(ts_data, predictions)
-            rmse = np.sqrt(mean_squared_error(ts_data, predictions))
-            
-            return {
-                "status": "success",
-                "forecasts": forecast.tolist(),
-                "mae": mae,
-                "rmse": rmse
-            }
-        except Exception as e:
-            return {"status": "error", "error_message": str(e)}
-    
-    def _moving_average_forecast(self, ts_data: pd.Series, periods: int) -> List[float]:
-        """Generate simple moving average forecast"""
-        try:
-            # Use last 4 periods average for all forecast periods
-            last_value = ts_data.tail(4).mean()
-            return [last_value] * periods
-        except:
-            return [0] * periods
 
-# Example usage and testing
+# ======================================================================
+# Example Usage Block
+# ======================================================================
 if __name__ == "__main__":
-    # Create sample economic data for testing
-    dates = pd.date_range(start='2020-01-01', end='2024-12-31', freq='Q')
-    np.random.seed(42)
+    # This block demonstrates how to use the StatisticalTools class and is useful for testing.
     
-    # Simulate GDP data with trend and seasonality
+    # --- 1. Create Sample Data ---
+    # Simulate quarterly GDP data with a clear trend, seasonality, and some noise.
+    dates = pd.date_range(start='2015-01-01', end='2024-12-31', freq='Q')
+    np.random.seed(42)
     trend = np.linspace(100, 120, len(dates))
     seasonal = 5 * np.sin(2 * np.pi * np.arange(len(dates)) / 4)
-    noise = np.random.normal(0, 2, len(dates))
+    noise = np.random.normal(0, 1.5, len(dates))
     gdp_data = trend + seasonal + noise
     
     sample_data = pd.DataFrame({
@@ -739,28 +634,42 @@ if __name__ == "__main__":
         'DataValue': gdp_data
     })
     
-    # Test the statistical tools
+    # --- 2. Initialize the Toolset ---
     tools = StatisticalTools()
     
-    print("Testing Economic Analysis Tools...")
-    print("=" * 50)
+    print("="*50)
+    print("Testing Statistical and Econometric Tools")
+    print("="*50)
+    
+    # --- 3. Test Public Methods ---
     
     # Test growth trend analysis
+    print("\n--- Analyzing Growth Trends ---")
     growth_analysis = tools.analyze_growth_trends(sample_data)
-    print("Growth Analysis:", growth_analysis)
+    print(growth_analysis)
     
     # Test indicator calculation
+    print("\n--- Calculating Economic Indicators ---")
     indicators = tools.calculate_indicators(sample_data)
-    print("\nEconomic Indicators:", indicators)
+    print(indicators)
     
     # Test business cycle analysis
+    print("\n--- Identifying Business Cycles ---")
     cycles = tools.identify_business_cycles(sample_data)
-    print("\nBusiness Cycles:", cycles)
+    print(cycles)
     
     # Test anomaly detection
+    print("\n--- Detecting Anomalies ---")
     anomalies = tools.detect_anomalies(sample_data)
-    print("\nAnomalies:", anomalies)
+    print(anomalies)
+    
+    # Test ARIMA model building
+    print("\n--- Building ARIMA Model ---")
+    arima_model = tools.build_arima_model(sample_data)
+    print(arima_model)
     
     # Test ARIMA forecasting
-    forecast = tools.forecast_arima(sample_data, periods=4)
-    print("\nARIMA Forecast:", forecast)
+    if arima_model.get('status') == 'success':
+        print("\n--- Forecasting with ARIMA ---")
+        forecast = tools.forecast_arima(sample_data, periods=4, order=arima_model['best_order'])
+        print(forecast)

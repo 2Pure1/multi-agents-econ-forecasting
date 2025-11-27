@@ -1,4 +1,4 @@
-"Statistical and Econometric Tools for Economic Analysis
+"""Statistical and Econometric Tools for Economic Analysis
 
 This module provides a comprehensive suite of statistical and econometric functions 
 for analyzing economic time-series data. It includes tools for data preparation, 

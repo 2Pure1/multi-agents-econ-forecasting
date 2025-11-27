@@ -3,8 +3,7 @@
 This module provides a comprehensive suite of statistical and econometric functions 
 for analyzing economic time-series data. It includes tools for data preparation, 
 trend analysis, indicator calculation, business cycle identification, anomaly 
-detection, and forecasting.
-"
+"""
 
 import pandas as pd
 import numpy as np

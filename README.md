@@ -41,14 +41,24 @@ pip install -r requirements.txt
 export BEA_API_KEY="your_bea_api_key"
 export GOOGLE_API_KEY="your_gemini_api_key"
 ```
-### Basic Usage
+### 🏃‍♂️ Running the Demo
 
-```bash
-from examples.multi_agent_workflow import main
-import asyncio
+The best way to see the system in action is through the interactive Jupyter Notebooks.
 
-asyncio.run(main())
-```
+1.  **Start Jupyter Lab/Notebook:**
+    ```bash
+    jupyter lab
+    ```
+2.  **Open the Multi-Agent Demo:**
+    Navigate to `notebooks/04_multi_agent_demo.ipynb` to see the full team coordination workflow.
+
+**Available Notebooks:**
+* `01_data_collection.ipynb` - Data fetching from BEA API
+* `02_economic_analysis.ipynb` - Trend and cycle analysis
+* `03_forecasting_models.ipynb` - ARIMA and Ensemble forecasting
+* `04_multi_agent_demo.ipynb` - **Main Demo:** Complete multi-agent collaboration
+* `05_economic_dashboard.ipynb` - Visualization showcase
+  
 
 ### 📊 Features
 
@@ -90,8 +100,6 @@ multi-agents-econ-forecasting/
 ├── src/agents/          # Specialized agent implementations
 
 ├── src/tools/           # Economic analysis tools
-
-├── examples/            # Usage examples and workflows
 
 ├── config/              # Agent and API configuration
 
